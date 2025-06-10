@@ -178,7 +178,7 @@ pub struct DecodeStream {
     prefix: String,
 
     /// The index within the ids corresponding to the prefix so we can drain
-    /// correctlyk
+    /// correctly
     prefix_index: usize,
 
     /// We need to keep 2 prefixes.
@@ -566,5 +566,156 @@ impl StopSequenceDecoderBuilder {
             stopped: false,
             state: String::new(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    /// A mock tokenizer for testing purposes
+    #[derive(Clone)]
+    pub struct MockTokenizer {}
+
+    impl traits::Encoder for MockTokenizer {
+        fn encode(&self, input: &str) -> Result<Encoding> {
+            Ok(Encoding {
+                spans: Vec::new(),
+                token_ids: Vec::new(),
+                tokens: Vec::new(),
+            })
+        }
+    }
+
+    impl traits::Decoder for MockTokenizer {
+        fn decode(&self, token_ids: &[TokenIdType], skip_special_tokens: bool) -> Result<String> {
+            let mut result = String::new();
+            Ok(result)
+        }
+    }
+
+    impl traits::Tokenizer for MockTokenizer {}
+
+    use crate::tokenizers::traits::Decoder;
+
+    use super::*;
+
+    #[test]
+    fn test_sequence_basic() {
+        let tokenizer = Tokenizer::from(Arc::new(MockTokenizer {}));
+        let mut seq = Sequence::new(tokenizer.clone());
+
+        // Append tokens
+        assert_eq!(seq.append_token_id(0).unwrap(), "a".to_string());
+        assert_eq!(seq.append_token_id(1).unwrap(), "b".to_string());
+        assert_eq!(seq.append_token_id(2).unwrap(), "c".to_string());
+
+        // Verify full text
+        assert_eq!(seq.text().unwrap(), "abc");
+    }
+
+    #[test]
+    fn test_sequence_multi_token() {
+        let tokenizer = Tokenizer::from(Arc::new(MockTokenizer {}));
+        let mut seq = Sequence::new(tokenizer.clone());
+
+        // Append multi-token sequence
+        assert_eq!(seq.append_token_id(3).unwrap(), "ab".to_string());
+        assert_eq!(seq.append_token_id(4).unwrap(), "bc".to_string());
+
+        // Verify full text
+        assert_eq!(seq.text().unwrap(), "abbc");
+    }
+
+    #[test]
+    fn test_stop_sequence_decoder() {
+        let tokenizer = Arc::new(MockTokenizer {});
+        let mut decoder = StopSequenceDecoder::builder(Tokenizer::from(tokenizer.clone()))
+            .add_stop_token_id_visible(2) // 'c' is visible stop token
+            .add_stop_token_id_hidden(4) // 'bc' is hidden stop token
+            .add_stop_sequence_visible("ab")
+            .build()
+            .unwrap();
+
+        // Test visible stop token
+        assert!(matches!(
+            decoder.append_token_id(0).unwrap(), // 'a'
+            SequenceDecoderOutput::Text(_)
+        ));
+        assert!(matches!(
+            decoder.append_token_id(2).unwrap(), // 'c' (visible stop)
+            SequenceDecoderOutput::StoppedWithText(_)
+        ));
+        assert!(decoder.is_complete());
+
+        // Reset
+        let mut decoder = StopSequenceDecoder::builder(Tokenizer::from(tokenizer.clone()))
+            .add_stop_token_id_hidden(4)
+            .build()
+            .unwrap();
+
+        // Test hidden stop token
+        decoder.append_token_id(1).unwrap(); // 'b'
+        assert!(matches!(
+            decoder.append_token_id(4).unwrap(), // 'bc' (hidden stop)
+            SequenceDecoderOutput::Stopped
+        ));
+
+        // Reset
+        let mut decoder = StopSequenceDecoder::builder(Tokenizer::from(tokenizer))
+            .add_stop_sequence_visible("ab")
+            .build()
+            .unwrap();
+
+        // Test stop sequence
+        assert!(matches!(
+            decoder.append_token_id(0).unwrap(), // 'a'
+            SequenceDecoderOutput::Text(_)
+        ));
+        assert!(matches!(
+            decoder.append_token_id(1).unwrap(), // 'b' completes "ab"
+            SequenceDecoderOutput::StoppedWithText(_)
+        ));
+    }
+
+    #[test]
+    fn test_decode_stream() {
+        let tokenizer = Tokenizer(Arc::new(MockTokenizer {}));
+        let mut stream = tokenizer.decode_stream(true);
+
+        // Single token
+        assert_eq!(stream.step(0).unwrap(), Some("a".to_string()));
+
+        // Multi-token
+        assert_eq!(stream.step(1).unwrap(), Some("b".to_string()));
+        assert_eq!(stream.step(2).unwrap(), Some("c".to_string()));
+
+        // Test reset state
+        let mut stream = tokenizer.decode_stream(false);
+        assert_eq!(stream.step(3).unwrap(), Some("ab".to_string()));
+        assert_eq!(stream.step(4).unwrap(), Some("bc".to_string()));
+    }
+
+    #[test]
+    fn test_encoding_hash() {
+        let encoding1 = Encoding {
+            token_ids: vec![0, 1, 2],
+            tokens: vec!["a".into(), "b".into(), "c".into()],
+            spans: vec![(0, 1), (1, 2), (2, 3)],
+        };
+
+        let encoding2 = Encoding {
+            token_ids: vec![0, 1, 2],
+            tokens: vec!["a".into(), "b".into(), "c".into()],
+            spans: vec![(0, 1), (1, 2), (2, 3)],
+        };
+
+        let encoding3 = Encoding {
+            token_ids: vec![0, 3], // Different token sequence
+            tokens: vec!["a".into(), "ab".into()],
+            spans: vec![(0, 1), (1, 3)],
+        };
+
+        assert_eq!(encoding1.get_hash(), encoding2.get_hash());
+        assert_ne!(encoding1.get_hash(), encoding3.get_hash());
     }
 }
