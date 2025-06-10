@@ -163,7 +163,9 @@ impl BlockRegistry {
                 // If an identical block already exists in this pool, return an error.
                 if let Some(handle) = blocks.get(&sequence_hash) {
                     if let Some(_handle) = handle.upgrade() {
-                        return Err(BlockRegistrationError::BlockAlreadyRegistered(sequence_hash));
+                        return Err(BlockRegistrationError::BlockAlreadyRegistered(
+                            sequence_hash,
+                        ));
                     }
                 }
 
