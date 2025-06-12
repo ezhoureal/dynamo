@@ -395,8 +395,8 @@ mod tests {
 
     // Helper to create a scheduling request
     struct WorkerOverlap {
-        pub worker_id: i64,
-        pub overlap_blocks: u32,
+        worker_id: i64,
+        overlap_blocks: u32,
     }
     fn create_request(overlaps: Vec<WorkerOverlap>, isl_tokens: usize) -> SchedulingRequest {
         SchedulingRequest {
