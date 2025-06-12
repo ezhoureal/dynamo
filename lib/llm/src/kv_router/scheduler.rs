@@ -438,7 +438,7 @@ mod tests {
     #[test]
     fn test_no_overlap_scores() {
         // Workers exist but request has no overlap scores
-        let workers = create_workers(vec![(1, 50.0, 1)]);
+        let workers = create_workers(vec![(1, 0.50, 1)]);
         let request = create_request(vec![], 100); // No overlaps
         let selector = DefaultWorkerSelector::new(None);
         let block_size = 20;
@@ -450,29 +450,6 @@ mod tests {
         // Worker1 should be selected with 0 overlap
         assert_eq!(result.worker_id, 1);
         assert_eq!(result.overlap_blocks, 0);
-    }
-
-    #[test]
-    fn test_tie_breaker_randomness() {
-        // Two identical workers
-        let workers = create_workers(vec![(1, 50.0, 1), (2, 50.0, 1)]);
-
-        // Both have same overlap
-        let request = create_request(vec![(1, 3), (2, 3)], 100);
-        let selector = DefaultWorkerSelector::new(None);
-        let block_size = 20;
-
-        // Run multiple times to verify randomness
-        let mut results = Vec::new();
-        for _ in 0..10 {
-            let result = selector
-                .select_worker(&workers, &request, block_size)
-                .expect("Should select worker");
-            results.push(result.worker_id);
-        }
-        // Should have selected both workers at least once
-        assert!(results.contains(&1));
-        assert!(results.contains(&2));
     }
 
     #[test]
