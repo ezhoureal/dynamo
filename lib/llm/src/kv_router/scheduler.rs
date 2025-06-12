@@ -373,10 +373,15 @@ mod tests {
     }
 
     // Helper to create ProcessedEndpoints
-    fn create_workers(workers: Vec<(i64, f32, u64)>) -> ProcessedEndpoints {
+    struct WorkerInfo {
+        id: i64,
+        usage: f32,
+        waiting: u64
+    }
+    fn create_workers(workers: Vec<WorkerInfo>) -> ProcessedEndpoints {
         let mut endpoints = HashMap::new();
-        for (id, usage, waiting) in workers {
-            endpoints.insert(id, create_endpoint(id, usage, waiting));
+        for worker in workers {
+            endpoints.insert(worker.id, create_endpoint(worker.id, worker.usage, worker.waiting));
         }
         ProcessedEndpoints {
             endpoints,
@@ -401,8 +406,8 @@ mod tests {
     fn test_select_worker_basic() {
         // Setup workers
         let workers = create_workers(vec![
-            (1, 0.50, 1), // worker_id, gpu_usage%, waiting_requests
-            (2, 0.80, 0),
+            WorkerInfo { id: 1, usage: 0.50, waiting: 1 },
+            WorkerInfo { id: 2, usage: 0.80, waiting: 0 },
         ]);
 
         // Setup request: 100 tokens, block_size=20 (5 blocks)
@@ -438,7 +443,7 @@ mod tests {
     #[test]
     fn test_no_overlap_scores() {
         // Workers exist but request has no overlap scores
-        let workers = create_workers(vec![(1, 0.50, 1)]);
+        let workers = create_workers(vec![WorkerInfo { id: 1, usage: 0.50, waiting: 1 }]);
         let request = create_request(vec![], 100); // No overlaps
         let selector = DefaultWorkerSelector::new(None);
         let block_size = 20;
@@ -455,7 +460,10 @@ mod tests {
     #[test]
     fn test_custom_weights() {
         // Setup workers
-        let workers = create_workers(vec![(1, 0.50, 1), (2, 0.80, 0)]);
+        let workers = create_workers(vec![
+            WorkerInfo { id: 1, usage: 0.50, waiting: 1 },
+            WorkerInfo { id: 2, usage: 0.80, waiting: 0 }
+        ]);
 
         // Custom config with high priority on GPU usage
         let config = KvRouterConfig {
