@@ -353,8 +353,6 @@ impl WorkerSelector for DefaultWorkerSelector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::kv_router::indexer::OverlapScores;
-    use std::collections::HashMap;
 
     // Helper to create a worker endpoint
     fn create_endpoint(
@@ -471,7 +469,6 @@ mod tests {
                 .expect("Should select worker");
             results.push(result.worker_id);
         }
-        println!("{:?}", results);
         // Should have selected both workers at least once
         assert!(results.contains(&1));
         assert!(results.contains(&2));
