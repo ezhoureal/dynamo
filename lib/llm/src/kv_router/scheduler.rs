@@ -378,7 +378,11 @@ mod tests {
         for (id, usage, waiting) in workers {
             endpoints.insert(id, create_endpoint(id, usage, waiting));
         }
-        ProcessedEndpoints { endpoints, load_avg: 0.0, load_std: 0.0 }
+        ProcessedEndpoints {
+            endpoints,
+            load_avg: 0.0,
+            load_std: 0.0,
+        }
     }
 
     // Helper to create a scheduling request
@@ -397,7 +401,7 @@ mod tests {
     fn test_select_worker_basic() {
         // Setup workers
         let workers = create_workers(vec![
-            (1, 0.50, 1),  // worker_id, gpu_usage%, waiting_requests
+            (1, 0.50, 1), // worker_id, gpu_usage%, waiting_requests
             (2, 0.80, 0),
         ]);
 
@@ -451,10 +455,7 @@ mod tests {
     #[test]
     fn test_tie_breaker_randomness() {
         // Two identical workers
-        let workers = create_workers(vec![
-            (1, 50.0, 1),
-            (2, 50.0, 1),
-        ]);
+        let workers = create_workers(vec![(1, 50.0, 1), (2, 50.0, 1)]);
 
         // Both have same overlap
         let request = create_request(vec![(1, 3), (2, 3)], 100);
@@ -477,10 +478,7 @@ mod tests {
     #[test]
     fn test_custom_weights() {
         // Setup workers
-        let workers = create_workers(vec![
-            (1, 0.50, 1),
-            (2, 0.80, 0),
-        ]);
+        let workers = create_workers(vec![(1, 0.50, 1), (2, 0.80, 0)]);
 
         // Custom config with high priority on GPU usage
         let config = KvRouterConfig {
